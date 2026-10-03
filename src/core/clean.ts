@@ -172,3 +172,39 @@ export function toMarkdown(highlights: Highlight[]): string {
     )
     .join('\n');
 }
+
+export interface Segment {
+  text: string;
+  /** True for text this block added to the highlight. */
+  added: boolean;
+}
+
+/** Replays the merge of a highlight's source texts, marking what each one added. */
+export function explainMerge(texts: string[]): Segment[][] {
+  const parts = (...segments: Segment[]) => segments.filter((s) => s.text !== '');
+  const [first, ...rest] = texts;
+  if (first === undefined) return [];
+  let acc = first;
+  const result = [parts({ text: first, added: true })];
+  for (const b of rest) {
+    const joined = joinTexts(acc, b);
+    if (!joined || joined.contained) {
+      result.push(parts({ text: b, added: false }));
+    } else if (b.includes(acc)) {
+      const p = b.indexOf(acc);
+      result.push(
+        parts(
+          { text: b.slice(0, p), added: true },
+          { text: acc, added: false },
+          { text: b.slice(p + acc.length), added: true },
+        ),
+      );
+      acc = b;
+    } else {
+      const keep = b.length - (joined.text.length - acc.length);
+      result.push(parts({ text: b.slice(0, keep), added: false }, { text: b.slice(keep), added: true }));
+      acc = joined.text;
+    }
+  }
+  return result;
+}

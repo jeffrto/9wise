@@ -175,3 +175,37 @@ describe('retryAfterMs', () => {
     expect(retryAfterMs(null)).toBe(60_000);
   });
 });
+
+describe('deleteHighlight', () => {
+  it('sends DELETE and accepts 204 or 404', async () => {
+    const { rw, calls } = client([new Response(null, { status: 204 }), new Response('', { status: 404 })]);
+    await rw.deleteHighlight(5);
+    await rw.deleteHighlight(6);
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+      'DELETE https://readwise.io/api/v2/highlights/5/',
+      'DELETE https://readwise.io/api/v2/highlights/6/',
+    ]);
+  });
+
+  it('throws on other errors', async () => {
+    const { rw } = client([new Response('', { status: 500 })]);
+    await expect(rw.deleteHighlight(5)).rejects.toBeInstanceOf(ReadwiseError);
+  });
+});
+
+describe('progress callbacks', () => {
+  it('reports rate limits and batches', async () => {
+    const { rw } = client(
+      [new Response('', { status: 429, headers: { 'Retry-After': '3' } }), json([]), json([])],
+      { batchSize: 1 },
+    );
+    const waits: number[] = [];
+    const done: number[] = [];
+    rw.onRateLimit = (ms) => waits.push(ms);
+    const book = { title: 'T' };
+    const hl = (text: string): Highlight => ({ id: 1, text, note: null, start: 0, end: 1, sources: [1] });
+    await rw.createHighlights([toNewHighlight(hl('a'), book), toNewHighlight(hl('b'), book)], (n) => done.push(n));
+    expect(waits).toEqual([3000]);
+    expect(done).toEqual([1, 2]);
+  });
+});

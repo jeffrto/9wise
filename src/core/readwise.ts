@@ -60,6 +60,8 @@ export interface ReadwiseClientOptions {
   baseUrl?: string;
   maxRetries?: number;
   batchSize?: number;
+  /** Called before waiting on a 429, with the wait in milliseconds. */
+  onRateLimit?: (ms: number) => void;
 }
 
 export function toNewHighlight(h: Highlight, book: BookInfo): NewHighlight {
@@ -94,6 +96,7 @@ export class ReadwiseClient {
   private readonly baseUrl: string;
   private readonly maxRetries: number;
   private readonly batchSize: number;
+  onRateLimit?: (ms: number) => void;
 
   constructor(options: ReadwiseClientOptions) {
     this.token = options.token.trim();
@@ -102,6 +105,7 @@ export class ReadwiseClient {
     this.baseUrl = options.baseUrl ?? READWISE_API;
     this.maxRetries = options.maxRetries ?? 5;
     this.batchSize = options.batchSize ?? 100;
+    this.onRateLimit = options.onRateLimit;
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
@@ -112,7 +116,9 @@ export class ReadwiseClient {
     for (let attempt = 0; ; attempt++) {
       const res = await this.fetch(url, { ...init, headers });
       if (res.status === 429 && attempt < this.maxRetries) {
-        await this.sleep(retryAfterMs(res.headers.get('Retry-After')));
+        const wait = retryAfterMs(res.headers.get('Retry-After'));
+        this.onRateLimit?.(wait);
+        await this.sleep(wait);
         continue;
       }
       return res;
@@ -165,7 +171,10 @@ export class ReadwiseClient {
     return highlights;
   }
 
-  async createHighlights(highlights: NewHighlight[]): Promise<CreatedBook[]> {
+  async createHighlights(
+    highlights: NewHighlight[],
+    onBatch?: (done: number) => void,
+  ): Promise<CreatedBook[]> {
     const books: CreatedBook[] = [];
     for (let i = 0; i < highlights.length; i += this.batchSize) {
       const batch = highlights.slice(i, i + this.batchSize);
@@ -174,11 +183,19 @@ export class ReadwiseClient {
         body: JSON.stringify({ highlights: batch }),
       });
       books.push(...created);
+      onBatch?.(i + batch.length);
     }
     return books;
   }
 
   async updateHighlight(id: number, patch: HighlightPatch): Promise<ExistingHighlight> {
     return this.json(`/highlights/${id}/`, { method: 'PATCH', body: JSON.stringify(patch) });
+  }
+
+  async deleteHighlight(id: number): Promise<void> {
+    const res = await this.request(`/highlights/${id}/`, { method: 'DELETE' });
+    if (!res.ok && res.status !== 404) {
+      throw new ReadwiseError(res.status, `Readwise ${res.status} deleting highlight ${id}`);
+    }
   }
 }

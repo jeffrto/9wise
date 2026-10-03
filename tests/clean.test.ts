@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clean, joinTexts, stripFootnotes, toMarkdown, verifyNothingLost } from '../src/core/clean.ts';
+import { clean, explainMerge, joinTexts, stripFootnotes, toMarkdown, verifyNothingLost } from '../src/core/clean.ts';
 import { parseExport } from '../src/core/parser.ts';
 import { MAX_TEXT_LENGTH } from '../src/core/types.ts';
 import { blocks, parseFixture } from './helpers.ts';
@@ -194,4 +194,24 @@ describe('toMarkdown', () => {
       );
     },
   );
+});
+
+describe('explainMerge', () => {
+  const marked = (segments: { text: string; added: boolean }[]) =>
+    segments.map((s) => (s.added ? `[${s.text}]` : s.text)).join('');
+
+  it('marks what each block added', () => {
+    const result = explainMerge([
+      'the keeper climbed the stairs every night,',
+      'climbed the stairs every night, lamp in hand,',
+      'lamp in hand,',
+      'At dusk the keeper climbed the stairs every night, lamp in hand, and waited.',
+    ]);
+    expect(result.map(marked)).toEqual([
+      '[the keeper climbed the stairs every night,]',
+      'climbed the stairs every night,[ lamp in hand,]',
+      'lamp in hand,',
+      '[At dusk ]the keeper climbed the stairs every night, lamp in hand,[ and waited.]',
+    ]);
+  });
 });
