@@ -128,3 +128,29 @@ describe('parseTimestamp', () => {
     expect(parseTimestamp('12')).toBeNull();
   });
 });
+
+describe('parseExport (Portuguese export)', () => {
+  const parsed = parseFixture('O Faroleiro - Bookmarks.md');
+
+  it('reads localized labels and skips the heading', () => {
+    expect(parsed.blocks).toHaveLength(3);
+    expect(parsed.warnings).toEqual([]);
+    expect(parsed.total).toBe(3);
+    expect(parsed.bookTitle).toBe('O Faroleiro');
+  });
+
+  it('strips the quotes around the text', () => {
+    expect(parsed.blocks[0]!.text).toBe('O farol acendia antes de o sol se pôr, por teimosia.');
+    expect(parsed.blocks[2]!.text).toBe('Ele dizia que o mar “não tem pressa”, e acreditava nisso.');
+  });
+
+  it('treats "Nota vazia" as no note', () => {
+    expect(parsed.blocks[0]!.note).toBeNull();
+    expect(parsed.blocks[1]!.note).toBe('Lembra meu avô');
+  });
+
+  it('reads h:mm:ss times', () => {
+    expect(parsed.blocks[1]).toMatchObject({ start: 3599, end: 3622 });
+    expect(parsed.blocks[2]).toMatchObject({ start: 4 * 3600 + 16 * 60 + 1, end: 4 * 3600 + 16 * 60 + 33 });
+  });
+});

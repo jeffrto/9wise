@@ -10,8 +10,26 @@ interface RawBlock {
   current: Field | null;
 }
 
-const FIELD_LINE = /^\s*[-*]\s*\*\*(title|note|time)\*\*\s*:\s?(.*)$/i;
-const EMPTY_NOTE = /^empty note$/i;
+const LABELS: Record<string, Field> = {
+  title: 'title',
+  título: 'title',
+  titulo: 'title',
+  note: 'note',
+  nota: 'note',
+  time: 'time',
+  tempo: 'time',
+};
+
+const FIELD_LINE = /^\s*[-*]\s*\*\*([^*]+)\*\*\s*:\s?(.*)$/;
+const HEADING = /^\s*#{1,6}\s/;
+const EMPTY_NOTE = /^(empty note|nota vazia)$/i;
+
+function unquote(value: string | undefined): string | undefined {
+  if (value && value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).trim();
+  }
+  return value;
+}
 
 export function titleFromFileName(fileName: string): { title: string; confident: boolean } {
   const base = fileName.split(/[\\/]/).pop() ?? '';
@@ -66,8 +84,8 @@ export function parseExport(content: string, fileName = ''): ParseResult {
   lines.forEach((text, i) => {
     const lineNo = i + 1;
     const match = text.match(FIELD_LINE);
-    if (match) {
-      const field = match[1]!.toLowerCase() as Field;
+    const field = match ? LABELS[match[1]!.trim().toLowerCase()] : undefined;
+    if (match && field) {
       const target: RawBlock =
         !block || field === 'title' || block.fields[field] ? open(lineNo) : block;
       target.fields[field] = [match[2] ?? ''];
@@ -75,7 +93,8 @@ export function parseExport(content: string, fileName = ''): ParseResult {
       target.lines.push(text);
       return;
     }
-    if (text.trim() === '' && (!block || block.current === null || block.current === 'time')) return;
+    const between = !block || block.current === null || block.current === 'time';
+    if (between && (text.trim() === '' || HEADING.test(text))) return;
     const target: RawBlock = !block || block.current === 'time' ? open(lineNo) : block;
     target.lines.push(text);
     if (target.current) target.fields[target.current]!.push(text);
@@ -88,8 +107,8 @@ export function parseExport(content: string, fileName = ''): ParseResult {
     const warn = (reason: string) =>
       warnings.push({ index: raw.index, line: raw.line, reason, raw: raw.lines.join('\n').trim() });
 
-    const text = fieldValue(raw.fields.title);
-    const note = fieldValue(raw.fields.note);
+    const text = unquote(fieldValue(raw.fields.title));
+    const note = unquote(fieldValue(raw.fields.note));
     const time = fieldValue(raw.fields.time);
 
     if (!raw.fields.title && !raw.fields.note && !raw.fields.time) {
