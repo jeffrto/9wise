@@ -276,6 +276,43 @@ describe('ui', () => {
     expect(post.highlights[0]).not.toHaveProperty('image_url');
   });
 
+  it('finds the exact edition by ISBN', async () => {
+    routes['GET /books/'] = () => json({ next: null, results: [] });
+    routes['GET /search.json'] = () => json({ docs: [] });
+    routes['GET /isbn/9780140449334.json'] = () =>
+      json({ title: 'The Lighthouse Keeper', covers: [77], publish_date: '2006' });
+    await connect();
+    await see('Add your highlights');
+    chooseFile(FILE, fixture(FILE));
+    await see('Search by ISBN');
+    click('Search by ISBN');
+    const isbn = document.querySelector<HTMLInputElement>('#isbn')!;
+    isbn.value = '978-0-14-044933-5';
+    isbn.dispatchEvent(new Event('input', { bubbles: true }));
+    flushSync();
+    click('Search');
+    await see("doesn't look like an ISBN");
+
+    routes['GET /search.json'] = () =>
+      json({ docs: [{ title: 'The Lighthouse Keeper', author_name: ['Ada Lane'] }] });
+    isbn.value = '978-0-14-044933-4';
+    isbn.dispatchEvent(new Event('input', { bubbles: true }));
+    flushSync();
+    click('Search');
+    await see('2006 · Open Library');
+    expect(document.querySelector<HTMLInputElement>('#author')!.value).toBe('Ada Lane');
+
+    click('Continue');
+    await see('5 new');
+    click('Sync to Readwise');
+    await see('is up to date');
+    const post = calls.find((c) => c.method === 'POST')!.body as { highlights: Record<string, unknown>[] };
+    expect(post.highlights[0]).toMatchObject({
+      author: 'Ada Lane',
+      image_url: 'https://covers.openlibrary.org/b/id/77-M.jpg',
+    });
+  });
+
   it('keeps the file when Readwise is unreachable', async () => {
     await connect();
     await see('Add your highlights');

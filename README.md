@@ -42,9 +42,9 @@ download the clean file to check it yourself.
 - Your Readwise token is saved only in this browser (`localStorage`) and sent only to `readwise.io`.
   **Forget token** removes it.
 - Your highlights go straight from your browser to Readwise.
-- **Only for a book that isn't in your Readwise library yet**, 9wise sends its title to
-  [Open Library](https://openlibrary.org) to suggest the author and cover. No highlight text is sent, and you
-  always confirm the author before syncing.
+- **Only for a book that isn't in your Readwise library yet**, 9wise sends its title (or the ISBN, if you search
+  by ISBN) to [Open Library](https://openlibrary.org) to suggest the author and cover. No highlight text is
+  sent, and you always confirm the author before syncing.
 
 ## Development
 

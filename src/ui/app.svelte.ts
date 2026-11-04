@@ -1,7 +1,7 @@
 import { matchBooks } from '../core/books.ts';
 import { clean } from '../core/clean.ts';
 import { diff } from '../core/diff.ts';
-import { findBook, type BookSuggestion } from '../core/lookup.ts';
+import { findBook, findByIsbn, normalizeIsbn, type BookSuggestion } from '../core/lookup.ts';
 import { parseExport } from '../core/parser.ts';
 import { ReadwiseClient, ReadwiseError, type BookInfo, type ReadwiseBook } from '../core/readwise.ts';
 import { planSync, runSync, type SyncOutcome, type SyncProgress } from '../core/sync.ts';
@@ -54,6 +54,7 @@ class App {
   draft = $state({ title: '', author: '' });
   suggestions = $state.raw<BookSuggestion[] | null>(null);
   suggestion = $state<number | 'none'>('none');
+  isbn = $state<'idle' | 'searching' | 'invalid' | 'notFound'>('idle');
 
   chosen = $state.raw<Chosen | null>(null);
   existing = $state.raw<ExistingHighlight[] | null>(null);
@@ -156,6 +157,7 @@ class App {
     this.fileError = null;
     this.suggestions = null;
     this.suggestion = 'none';
+    this.isbn = 'idle';
     this.screen = this.token ? 'upload' : 'connect';
   }
 
@@ -203,6 +205,25 @@ class App {
       this.suggestions = found;
       if (found[0] && !this.draft.author.trim()) this.pickSuggestion(0);
     });
+  }
+
+  async searchIsbn(input: string) {
+    const isbn = normalizeIsbn(input);
+    if (!isbn) {
+      this.isbn = 'invalid';
+      return;
+    }
+    const parsed = this.parsed;
+    this.isbn = 'searching';
+    const found = await findByIsbn(isbn);
+    if (this.parsed !== parsed) return;
+    if (!found) {
+      this.isbn = 'notFound';
+      return;
+    }
+    this.isbn = 'idle';
+    this.suggestions = [found, ...(this.suggestions ?? [])].slice(0, 4);
+    this.pickSuggestion(0);
   }
 
   pickSuggestion(choice: number | 'none') {

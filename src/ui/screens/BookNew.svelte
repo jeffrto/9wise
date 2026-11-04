@@ -3,6 +3,9 @@
   import Cover from '../Cover.svelte';
   import Icon from '../Icon.svelte';
   import FileCard from './FileCard.svelte';
+
+  let isbnOpen = $state(false);
+  let isbnInput = $state('');
 </script>
 
 <button
@@ -74,6 +77,48 @@
       </label>
     </fieldset>
   {/if}
+  {#if app.suggestions !== null}
+    {#if !isbnOpen}
+      <button class="inline-link" type="button" onclick={() => (isbnOpen = true)}>Search by ISBN</button>
+    {:else}
+      <div class="stack" style="gap: 8px">
+        <label class="field-label" for="isbn">ISBN</label>
+        <div class="isbn-row">
+          <input
+            id="isbn"
+            class="field"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="978-…"
+            bind:value={isbnInput}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                app.searchIsbn(isbnInput);
+              }
+            }}
+          />
+          <button
+            class="btn secondary"
+            type="button"
+            disabled={app.isbn === 'searching' || !isbnInput.trim()}
+            onclick={() => app.searchIsbn(isbnInput)}
+          >
+            {app.isbn === 'searching' ? 'Searching…' : 'Search'}
+          </button>
+        </div>
+        {#if app.isbn === 'invalid'}
+          <p class="small">That doesn't look like an ISBN. Check the digits on the book's copyright page.</p>
+        {:else if app.isbn === 'notFound'}
+          <p class="small">Open Library doesn't know this ISBN. Type the author below.</p>
+        {:else}
+          <p class="small">Finds the exact edition, with its cover. 10 or 13 digits.</p>
+        {/if}
+      </div>
+    {/if}
+  {/if}
+
   <div class="stack" style="gap: 8px">
     <label class="field-label" for="author">Author</label>
     <input id="author" class="field" type="text" maxlength="1024" bind:value={app.draft.author} />
@@ -102,5 +147,18 @@
   .author {
     font-size: 14px;
     color: var(--muted);
+  }
+  .isbn-row {
+    display: flex;
+    gap: 8px;
+  }
+  .isbn-row .field {
+    flex: 1;
+    min-width: 0;
+  }
+  .isbn-row .btn {
+    width: auto;
+    flex-shrink: 0;
+    padding: 0 18px;
   }
 </style>

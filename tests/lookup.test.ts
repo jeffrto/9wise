@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findBook } from '../src/core/lookup.ts';
+import { findBook, findByIsbn, normalizeIsbn } from '../src/core/lookup.ts';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
@@ -66,5 +66,57 @@ describe('findBook', () => {
     }) as typeof fetch;
     expect(await findBook('O Faroleiro', { fetch: offline })).toEqual([]);
     expect(await findBook('O Faroleiro', { fetch: fakeFetch(() => json({}, 503)).fn })).toEqual([]);
+  });
+});
+
+describe('normalizeIsbn', () => {
+  it('accepts valid ISBN-10 and ISBN-13 with hyphens and spaces', () => {
+    expect(normalizeIsbn('978-0-14-044933-4')).toBe('9780140449334');
+    expect(normalizeIsbn('0 14 044933 7')).toBe('0140449337');
+    expect(normalizeIsbn('080442957x')).toBe('080442957X');
+  });
+
+  it('rejects wrong check digits and other text', () => {
+    expect(normalizeIsbn('9780140449335')).toBeNull();
+    expect(normalizeIsbn('0140449338')).toBeNull();
+    expect(normalizeIsbn('O Faroleiro')).toBeNull();
+  });
+});
+
+describe('findByIsbn', () => {
+  it('takes title, year and cover from the edition and the author from the work', async () => {
+    const { fn, urls } = fakeFetch((url) =>
+      url.pathname === '/isbn/9780140449334.json'
+        ? json({ title: 'O Faroleiro', covers: [-1, 99], publish_date: 'March 2006' })
+        : json({ docs: [{ title: 'The Lighthouse Keeper', author_name: ['Ada Lane', 'A Translator'], cover_i: 5 }] }),
+    );
+    expect(await findByIsbn('9780140449334', { fetch: fn })).toEqual({
+      title: 'O Faroleiro',
+      author: 'Ada Lane',
+      year: 2006,
+      coverUrl: 'https://covers.openlibrary.org/b/id/99-M.jpg',
+    });
+    expect(urls.find((u) => u.pathname === '/search.json')!.searchParams.get('isbn')).toBe('9780140449334');
+  });
+
+  it('falls back to the work, and to no author', async () => {
+    const workOnly = fakeFetch((url) =>
+      url.pathname.startsWith('/isbn/') ? json({}, 404) : json({ docs: [{ title: 'O Faroleiro', cover_i: 5 }] }),
+    );
+    expect(await findByIsbn('9780140449334', { fetch: workOnly.fn })).toEqual({
+      title: 'O Faroleiro',
+      author: '',
+      year: null,
+      coverUrl: 'https://covers.openlibrary.org/b/id/5-M.jpg',
+    });
+  });
+
+  it('returns null for an unknown ISBN or when offline', async () => {
+    const unknown = fakeFetch((url) => (url.pathname.startsWith('/isbn/') ? json({}, 404) : json({ docs: [] })));
+    expect(await findByIsbn('9780140449334', { fetch: unknown.fn })).toBeNull();
+    const offline = (async () => {
+      throw new TypeError('Failed to fetch');
+    }) as typeof fetch;
+    expect(await findByIsbn('9780140449334', { fetch: offline })).toBeNull();
   });
 });
