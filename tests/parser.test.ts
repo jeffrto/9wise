@@ -162,3 +162,32 @@ describe('parseExport (Portuguese export)', () => {
     expect(parsed.blocks[2]).toMatchObject({ start: 4 * 3600 + 16 * 60 + 1, end: 4 * 3600 + 16 * 60 + 33 });
   });
 });
+
+describe('parseExport (unknown language)', () => {
+  const parsed = parseFixture('Der Leuchtturm - Lesezeichen.md');
+
+  it('reads fields by position when the labels are unknown', () => {
+    expect(parsed.warnings).toEqual([]);
+    expect(parsed.blocks.map((b) => [b.text, b.start, b.end])).toEqual([
+      ['Das Licht ging an, bevor die Sonne unterging.', 19, 38],
+      ['Niemand dankte dem Licht.', 62, 70],
+      ['Das Meer hat keine Eile.', 120, 129],
+      ['Er glaubte daran.', 3622, 3630],
+    ]);
+  });
+
+  it('treats the repeated placeholder as no note and keeps real notes', () => {
+    expect(parsed.blocks.map((b) => b.note)).toEqual([null, 'Erinnert mich an Opa', null, null]);
+  });
+
+  it('strips a known translation of "Bookmarks" from the file name', () => {
+    expect(parsed.bookTitle).toBe('Der Leuchtturm');
+  });
+
+  it('keeps a repeated note when the labels are known', () => {
+    const content = ['A.', 'B.', 'C.']
+      .map((t, i) => `- **Title**: ${t}\n- **Note**: important\n- **Time**: 00:0${i} - 00:0${i + 1}`)
+      .join('\n\n');
+    expect(parseExport(content).blocks.map((b) => b.note)).toEqual(['important', 'important', 'important']);
+  });
+});

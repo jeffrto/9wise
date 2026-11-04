@@ -23,6 +23,8 @@ const LABELS: Record<string, Field> = {
 const FIELD_LINE = /^\s*[-*]\s*\*\*([^*]+)\*\*\s*:\s?(.*)$/;
 const HEADING = /^\s*#{1,6}\s/;
 const EMPTY_NOTE = /^(empty note|nota vazia)$/i;
+/** File name suffixes: verified (bookmarks, favoritos) and likely translations. */
+const SUFFIX = /^(.*\S)\s+-\s+(bookmarks|favoritos|marcadores|favoris|signets|lesezeichen|segnalibri)$/i;
 
 function unquote(value: string | undefined): string | undefined {
   if (value && value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
@@ -34,7 +36,7 @@ function unquote(value: string | undefined): string | undefined {
 export function titleFromFileName(fileName: string): { title: string; confident: boolean } {
   const base = fileName.split(/[\\/]/).pop() ?? '';
   const stem = base.replace(/\.(md|markdown|txt)$/i, '').replace(/\s*\(\d+\)$/, '').trim();
-  const match = stem.match(/^(.*\S)\s+-\s+(bookmarks|favoritos)$/i);
+  const match = stem.match(SUFFIX);
   if (match?.[1]) return { title: match[1], confident: true };
   return { title: stem, confident: false };
 }
@@ -70,6 +72,18 @@ function fieldValue(lines: string[] | undefined): string | undefined {
   return lines.join('\n').trim();
 }
 
+/**
+ * Without known labels the "empty note" text is in an unknown language. ElevenReader writes it in
+ * every block without a note, so a short note shared by at least half of the blocks is that text.
+ */
+function clearPlaceholderNotes(blocks: Block[]): void {
+  const counts = new Map<string, number>();
+  for (const b of blocks) if (b.note) counts.set(b.note, (counts.get(b.note) ?? 0) + 1);
+  const [placeholder, count] = [...counts].sort((x, y) => y[1] - x[1])[0] ?? [];
+  if (!placeholder || !count || count < 2 || count * 2 < blocks.length || placeholder.length > 40) return;
+  for (const b of blocks) if (b.note === placeholder) b.note = null;
+}
+
 export function parseExport(content: string, fileName = ''): ParseResult {
   const lines = content.replace(/^\uFEFF/, '').split(/\r\n|\r|\n/);
   const raws: RawBlock[] = [];
@@ -81,10 +95,24 @@ export function parseExport(content: string, fileName = ''): ParseResult {
     return block;
   };
 
+  let unknownLabels = false;
+
+  // Unknown label (another language): Title, Note, Time come in that order, and Time looks like a time.
+  const byPosition = (value: string): Field => {
+    const b = block as RawBlock | null;
+    if (!b?.fields.title || b.fields.time) return 'title';
+    if (parseTimeRange(value.trim())) return 'time';
+    return b.fields.note ? 'title' : 'note';
+  };
+
   lines.forEach((text, i) => {
     const lineNo = i + 1;
     const match = text.match(FIELD_LINE);
-    const field = match ? LABELS[match[1]!.trim().toLowerCase()] : undefined;
+    let field = match ? LABELS[match[1]!.trim().toLowerCase()] : undefined;
+    if (match && !field) {
+      unknownLabels = true;
+      field = byPosition(match[2] ?? '');
+    }
     if (match && field) {
       const target: RawBlock =
         !block || field === 'title' || block.fields[field] ? open(lineNo) : block;
@@ -137,6 +165,8 @@ export function parseExport(content: string, fileName = ''): ParseResult {
       end: range.end,
     });
   }
+
+  if (unknownLabels) clearPlaceholderNotes(blocks);
 
   const { title, confident } = titleFromFileName(fileName);
   return { bookTitle: title, titleConfident: confident, blocks, warnings, total: raws.length };
