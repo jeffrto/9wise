@@ -51,7 +51,30 @@ class App {
   candidates = $state.raw<ReadwiseBook[]>([]);
   rememberedId = $state<number | null>(null);
   selected = $state<number | 'new'>('new');
-  draft = $state({ title: '', author: '' });
+  draft = $state({ title: '', author: '', cover: '' });
+  brokenCover = $state<string | null>(null);
+  /** Pasted cover link: null when empty, 'invalid' when it isn't an https URL. */
+  coverLink = $derived.by(() => {
+    const value = this.draft.cover.trim();
+    if (!value) return null;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' ? url.href : 'invalid';
+    } catch {
+      return 'invalid';
+    }
+  });
+  newCover = $derived.by(() => {
+    if (this.coverLink === 'invalid') return null;
+    if (this.coverLink) return this.coverLink;
+    const picked = this.suggestion === 'none' ? null : this.suggestions?.[this.suggestion];
+    return picked?.coverUrl ?? null;
+  });
+  canConfirmNewBook = $derived(
+    !!this.draft.title.trim() &&
+      this.coverLink !== 'invalid' &&
+      !(this.coverLink && this.brokenCover === this.coverLink),
+  );
   suggestions = $state.raw<BookSuggestion[] | null>(null);
   suggestion = $state<number | 'none'>('none');
   isbn = $state<'idle' | 'searching' | 'invalid' | 'notFound'>('idle');
@@ -185,7 +208,8 @@ class App {
       const matches = matchBooks(title, this.library).filter((b) => b !== known);
       this.candidates = known ? [known, ...matches.slice(0, 2)] : matches;
       this.rememberedId = known ? known.id : null;
-      this.draft = { title, author: '' };
+      this.draft = { title, author: '', cover: '' };
+      this.brokenCover = null;
       if (this.candidates[0]) {
         this.selected = this.candidates[0].id;
       } else {
@@ -245,12 +269,12 @@ class App {
   }
 
   confirmNewBook() {
-    const picked = this.suggestion === 'none' ? null : this.suggestions?.[this.suggestion];
+    if (!this.canConfirmNewBook) return;
     this.chosen = {
       kind: 'new',
       title: this.draft.title,
       author: this.draft.author,
-      imageUrl: picked?.coverUrl ?? null,
+      imageUrl: this.newCover,
     };
     this.existing = [];
     this.showPreview();

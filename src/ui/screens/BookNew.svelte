@@ -29,7 +29,7 @@
   style="gap: 20px"
   onsubmit={(e) => {
     e.preventDefault();
-    if (app.draft.title.trim()) app.confirmNewBook();
+    app.confirmNewBook();
   }}
 >
   <div class="stack" style="gap: 8px">
@@ -72,7 +72,7 @@
         />
         <div class="meta">
           <div class="book-title">None of these</div>
-          <div class="author">I'll type the author, no cover</div>
+          <div class="author">I'll type the author</div>
         </div>
       </label>
     </fieldset>
@@ -124,7 +124,43 @@
     <input id="author" class="field" type="text" maxlength="1024" bind:value={app.draft.author} />
     <p class="small">Double-check it. A different author later creates a second copy of the book in Readwise.</p>
   </div>
-  <button class="btn" type="submit" disabled={!app.draft.title.trim()}>Continue</button>
+  <div class="stack" style="gap: 8px">
+    <label class="field-label" for="cover">Cover image link <span class="optional">(optional)</span></label>
+    <div class="cover-row">
+      {#if app.newCover && app.brokenCover !== app.newCover}
+        <img
+          class="cover-preview"
+          src={app.newCover}
+          alt=""
+          referrerpolicy="no-referrer"
+          onerror={(e) => (app.brokenCover = (e.currentTarget as HTMLImageElement).getAttribute('src'))}
+        />
+      {:else}
+        <div class="cover-preview placeholder" aria-hidden="true">{app.draft.title}</div>
+      {/if}
+      <input
+        id="cover"
+        class="field"
+        type="url"
+        inputmode="url"
+        autocomplete="off"
+        placeholder="https://…"
+        bind:value={app.draft.cover}
+      />
+    </div>
+    {#if app.coverLink === 'invalid'}
+      <p class="small error-text">Use an image link that starts with https://.</p>
+    {:else if app.coverLink && app.brokenCover === app.coverLink}
+      <p class="small error-text">
+        Couldn't load an image from this link. Copy the image address (long-press or right-click the cover), not the
+        page address.
+      </p>
+    {:else}
+      <p class="small">Not your edition's cover? Paste the image address from the publisher or a store.</p>
+    {/if}
+  </div>
+
+  <button class="btn" type="submit" disabled={!app.canConfirmNewBook}>Continue</button>
 </form>
 
 <style>
@@ -147,6 +183,41 @@
   .author {
     font-size: 14px;
     color: var(--muted);
+  }
+  .error-text {
+    color: var(--danger);
+  }
+  .optional {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .cover-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .cover-row .field {
+    flex: 1;
+    min-width: 0;
+  }
+  .cover-preview {
+    width: 48px;
+    height: 70px;
+    flex-shrink: 0;
+    border-radius: 3px 5px 5px 3px;
+    object-fit: cover;
+    background: #33443a;
+  }
+  .cover-preview.placeholder {
+    color: #efe6cc;
+    font-family: var(--serif);
+    font-size: 9px;
+    line-height: 1.15;
+    display: flex;
+    align-items: flex-end;
+    padding: 5px;
+    overflow: hidden;
+    overflow-wrap: anywhere;
   }
   .isbn-row {
     display: flex;

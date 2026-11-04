@@ -313,6 +313,47 @@ describe('ui', () => {
     });
   });
 
+  it('uses a pasted cover link instead of the suggested cover', async () => {
+    routes['GET /books/'] = () => json({ next: null, results: [] });
+    routes['GET /search.json'] = () =>
+      json({ docs: [{ title: 'The Lighthouse Keeper', author_name: ['Ada Lane'], cover_i: 7 }] });
+    await connect();
+    await see('Add your highlights');
+    chooseFile(FILE, fixture(FILE));
+    await see('Cover image link');
+    const cover = document.querySelector<HTMLInputElement>('#cover')!;
+    const type = (value: string) => {
+      cover.value = value;
+      cover.dispatchEvent(new Event('input', { bubbles: true }));
+      flushSync();
+    };
+
+    type('http://example.com/cover.jpg');
+    await see('starts with https://');
+    expect(button('Continue').hasAttribute('disabled')).toBe(true);
+
+    type('https://example.com/my-edition.jpg');
+    expect(document.querySelector<HTMLImageElement>('img.cover-preview')!.src).toBe(
+      'https://example.com/my-edition.jpg',
+    );
+    document.querySelector('img.cover-preview')!.dispatchEvent(new Event('error'));
+    flushSync();
+    await see("Couldn't load an image");
+    expect(button('Continue').hasAttribute('disabled')).toBe(true);
+
+    type('https://example.com/real-cover.jpg');
+    expect(button('Continue').hasAttribute('disabled')).toBe(false);
+    click('Continue');
+    await see('5 new');
+    click('Sync to Readwise');
+    await see('is up to date');
+    const post = calls.find((c) => c.method === 'POST')!.body as { highlights: Record<string, unknown>[] };
+    expect(post.highlights[0]).toMatchObject({
+      author: 'Ada Lane',
+      image_url: 'https://example.com/real-cover.jpg',
+    });
+  });
+
   it('keeps the file when Readwise is unreachable', async () => {
     await connect();
     await see('Add your highlights');
