@@ -10,7 +10,8 @@ export function titleKey(title: string): string {
     .trim();
 }
 
-function score(fileKey: string, bookKey: string): number {
+/** 3 same title, 2 one contains the other, 1 most words shared, 0 unrelated. */
+export function score(fileKey: string, bookKey: string): number {
   if (!fileKey || !bookKey) return 0;
   if (fileKey === bookKey) return 3;
   const [short, long] = fileKey.length < bookKey.length ? [fileKey, bookKey] : [bookKey, fileKey];

@@ -8,7 +8,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "img-src 'self' https: data:",
-  'connect-src https://readwise.io',
+  'connect-src https://readwise.io https://openlibrary.org',
   "base-uri 'none'",
   "form-action 'none'",
 ].join('; ');

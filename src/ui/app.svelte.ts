@@ -1,6 +1,7 @@
 import { matchBooks } from '../core/books.ts';
 import { clean } from '../core/clean.ts';
 import { diff } from '../core/diff.ts';
+import { findBook, type BookSuggestion } from '../core/lookup.ts';
 import { parseExport } from '../core/parser.ts';
 import { ReadwiseClient, ReadwiseError, type BookInfo, type ReadwiseBook } from '../core/readwise.ts';
 import { planSync, runSync, type SyncOutcome, type SyncProgress } from '../core/sync.ts';
@@ -21,7 +22,7 @@ export type Screen =
 
 export type Chosen =
   | { kind: 'existing'; book: ReadwiseBook }
-  | { kind: 'new'; title: string; author: string };
+  | { kind: 'new'; title: string; author: string; imageUrl: string | null };
 
 export const REPO_URL = 'https://github.com/jeffrto/9wise';
 
@@ -51,6 +52,8 @@ class App {
   rememberedId = $state<number | null>(null);
   selected = $state<number | 'new'>('new');
   draft = $state({ title: '', author: '' });
+  suggestions = $state.raw<BookSuggestion[] | null>(null);
+  suggestion = $state<number | 'none'>('none');
 
   chosen = $state.raw<Chosen | null>(null);
   existing = $state.raw<ExistingHighlight[] | null>(null);
@@ -61,7 +64,11 @@ class App {
       ? null
       : this.chosen.kind === 'existing'
         ? { title: this.chosen.book.title, author: this.chosen.book.author }
-        : { title: this.chosen.title.trim(), author: this.chosen.author.trim() || null },
+        : {
+            title: this.chosen.title.trim(),
+            author: this.chosen.author.trim() || null,
+            imageUrl: this.chosen.imageUrl,
+          },
   );
   plan = $derived(
     this.diff && this.book ? planSync(this.diff, this.book, { deleteContained: this.deleteContained }) : null,
@@ -71,6 +78,7 @@ class App {
   waitUntil = $state<number | null>(null);
   outcome = $state.raw<SyncOutcome | null>(null);
   private retry: (() => Promise<void>) | null = null;
+  private lookedUp: ParseResult | null = null;
 
   private client(): ReadwiseClient {
     return new ReadwiseClient({
@@ -146,6 +154,8 @@ class App {
     this.progress = null;
     this.error = null;
     this.fileError = null;
+    this.suggestions = null;
+    this.suggestion = 'none';
     this.screen = this.token ? 'upload' : 'connect';
   }
 
@@ -178,14 +188,32 @@ class App {
         this.selected = this.candidates[0].id;
       } else {
         this.selected = 'new';
-        this.screen = 'bookNew';
+        this.openBookNew();
       }
     });
   }
 
+  openBookNew() {
+    this.screen = 'bookNew';
+    const parsed = this.parsed;
+    if (!parsed || this.lookedUp === parsed) return;
+    this.lookedUp = parsed;
+    void findBook(this.draft.title || parsed.bookTitle).then((found) => {
+      if (this.parsed !== parsed) return;
+      this.suggestions = found;
+      if (found[0] && !this.draft.author.trim()) this.pickSuggestion(0);
+    });
+  }
+
+  pickSuggestion(choice: number | 'none') {
+    this.suggestion = choice;
+    const picked = choice === 'none' ? null : this.suggestions?.[choice];
+    this.draft.author = picked ? picked.author : '';
+  }
+
   async chooseBook() {
     if (this.selected === 'new') {
-      this.screen = 'bookNew';
+      this.openBookNew();
       return;
     }
     const book = this.candidates.find((b) => b.id === this.selected);
@@ -196,7 +224,13 @@ class App {
   }
 
   confirmNewBook() {
-    this.chosen = { kind: 'new', title: this.draft.title, author: this.draft.author };
+    const picked = this.suggestion === 'none' ? null : this.suggestions?.[this.suggestion];
+    this.chosen = {
+      kind: 'new',
+      title: this.draft.title,
+      author: this.draft.author,
+      imageUrl: picked?.coverUrl ?? null,
+    };
     this.existing = [];
     this.showPreview();
   }

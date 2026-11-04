@@ -8,7 +8,8 @@ Send your [ElevenReader](https://elevenreader.io) highlights to [Readwise](https
 
 1. Get your Readwise access token at <https://readwise.io/access_token> and paste it into 9wise.
 2. In ElevenReader, export a book's bookmarks. You get a file like `Meditations - Bookmarks.md`.
-3. Drop the file into 9wise, confirm the book, check the preview and press **Sync to Readwise**.
+3. Drop the file into 9wise, confirm the book (for a new one, 9wise suggests the author and cover), check the
+   preview and press **Sync to Readwise**.
 
 Added more highlights to the same book later? Export again and sync the new file. Only what changed is sent.
 
@@ -40,7 +41,10 @@ download the clean file to check it yourself.
 - 9wise runs entirely in your browser. There is no server, no account and no analytics.
 - Your Readwise token is saved only in this browser (`localStorage`) and sent only to `readwise.io`.
   **Forget token** removes it.
-- Your highlights go straight from your browser to Readwise. Nobody else sees them.
+- Your highlights go straight from your browser to Readwise.
+- **Only for a book that isn't in your Readwise library yet**, 9wise sends its title to
+  [Open Library](https://openlibrary.org) to suggest the author and cover. No highlight text is sent, and you
+  always confirm the author before syncing.
 
 ## Development
 

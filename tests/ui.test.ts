@@ -231,6 +231,51 @@ describe('ui', () => {
     expect(calls.some((c) => c.path === '/export/')).toBe(false);
   });
 
+  it('suggests author and cover for a new book', async () => {
+    routes['GET /books/'] = () => json({ next: null, results: [] });
+    routes['GET /search.json'] = () =>
+      json({ docs: [{ title: 'The Lighthouse Keeper', author_name: ['Ada Lane'], cover_i: 7, first_publish_year: 1931 }] });
+    await connect();
+    await see('Add your highlights');
+    chooseFile(FILE, fixture(FILE));
+    await see('1931 · Open Library');
+    expect(document.querySelector<HTMLInputElement>('#author')!.value).toBe('Ada Lane');
+
+    click('Continue');
+    await see('5 new');
+    click('Sync to Readwise');
+    await see('is up to date');
+    const post = calls.find((c) => c.method === 'POST')!.body as { highlights: Record<string, unknown>[] };
+    expect(post.highlights[0]).toMatchObject({
+      author: 'Ada Lane',
+      image_url: 'https://covers.openlibrary.org/b/id/7-M.jpg',
+    });
+  });
+
+  it('sends no cover when none of the suggestions fit', async () => {
+    routes['GET /books/'] = () => json({ next: null, results: [] });
+    routes['GET /search.json'] = () =>
+      json({ docs: [{ title: 'The Lighthouse Keeper', author_name: ['Wrong Person'], cover_i: 8 }] });
+    await connect();
+    await see('Add your highlights');
+    chooseFile(FILE, fixture(FILE));
+    await see('None of these');
+    const none = [...document.querySelectorAll<HTMLInputElement>('input[name=suggestion]')].at(-1)!;
+    none.click();
+    flushSync();
+    const author = document.querySelector<HTMLInputElement>('#author')!;
+    expect(author.value).toBe('');
+    author.value = 'Ada Lane';
+    author.dispatchEvent(new Event('input', { bubbles: true }));
+    click('Continue');
+    await see('5 new');
+    click('Sync to Readwise');
+    await see('is up to date');
+    const post = calls.find((c) => c.method === 'POST')!.body as { highlights: Record<string, unknown>[] };
+    expect(post.highlights[0]).toMatchObject({ author: 'Ada Lane' });
+    expect(post.highlights[0]).not.toHaveProperty('image_url');
+  });
+
   it('keeps the file when Readwise is unreachable', async () => {
     await connect();
     await see('Add your highlights');

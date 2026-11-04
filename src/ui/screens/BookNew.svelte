@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app } from '../app.svelte.ts';
+  import Cover from '../Cover.svelte';
   import Icon from '../Icon.svelte';
   import FileCard from './FileCard.svelte';
 </script>
@@ -35,6 +36,44 @@
       <p class="small">We couldn't read the title from the file name. Please check it.</p>
     {/if}
   </div>
+  {#if app.suggestions === null}
+    <div class="loading"><span class="spinner"></span>Looking for the author and cover…</div>
+  {:else if app.suggestions.length}
+    <fieldset class="stack">
+      <legend class="field-label" style="margin-bottom: 4px; padding: 0">Suggestions</legend>
+      <p class="small" style="margin-bottom: 4px">Found by title on Open Library. Check the author before continuing.</p>
+      {#each app.suggestions as s, i (i)}
+        <label class="option">
+          <input
+            type="radio"
+            name="suggestion"
+            checked={app.suggestion === i}
+            onchange={() => app.pickSuggestion(i)}
+          />
+          <Cover title={s.title} url={s.coverUrl} />
+          <div class="meta">
+            <div class="book-title">{s.title}</div>
+            <div class="author">{s.author}</div>
+            <div class="small">
+              {[s.year, 'Open Library'].filter(Boolean).join(' · ')}
+            </div>
+          </div>
+        </label>
+      {/each}
+      <label class="option">
+        <input
+          type="radio"
+          name="suggestion"
+          checked={app.suggestion === 'none'}
+          onchange={() => app.pickSuggestion('none')}
+        />
+        <div class="meta">
+          <div class="book-title">None of these</div>
+          <div class="author">I'll type the author, no cover</div>
+        </div>
+      </label>
+    </fieldset>
+  {/if}
   <div class="stack" style="gap: 8px">
     <label class="field-label" for="author">Author</label>
     <input id="author" class="field" type="text" maxlength="1024" bind:value={app.draft.author} />
@@ -42,3 +81,26 @@
   </div>
   <button class="btn" type="submit" disabled={!app.draft.title.trim()}>Continue</button>
 </form>
+
+<style>
+  fieldset {
+    border: none;
+    padding: 0;
+    gap: 10px;
+  }
+  .meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .book-title {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .author {
+    font-size: 14px;
+    color: var(--muted);
+  }
+</style>
