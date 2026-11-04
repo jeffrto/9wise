@@ -105,6 +105,14 @@ describe('titleFromFileName', () => {
     });
   });
 
+  it('drops the Portuguese " - Favoritos.md"', () => {
+    expect(titleFromFileName('O lobo da estepe - Favoritos.md')).toEqual({ title: 'O lobo da estepe', confident: true });
+    expect(titleFromFileName('O lobo da estepe - favoritos (1).md')).toEqual({
+      title: 'O lobo da estepe',
+      confident: true,
+    });
+  });
+
   it('handles browser duplicate suffixes and paths', () => {
     expect(titleFromFileName('/tmp/Dune - Bookmarks (2).md')).toEqual({ title: 'Dune', confident: true });
   });

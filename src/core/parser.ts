@@ -34,7 +34,7 @@ function unquote(value: string | undefined): string | undefined {
 export function titleFromFileName(fileName: string): { title: string; confident: boolean } {
   const base = fileName.split(/[\\/]/).pop() ?? '';
   const stem = base.replace(/\.(md|markdown|txt)$/i, '').replace(/\s*\(\d+\)$/, '').trim();
-  const match = stem.match(/^(.*\S)\s+-\s+bookmarks$/i);
+  const match = stem.match(/^(.*\S)\s+-\s+(bookmarks|favoritos)$/i);
   if (match?.[1]) return { title: match[1], confident: true };
   return { title: stem, confident: false };
 }
