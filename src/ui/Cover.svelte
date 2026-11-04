@@ -1,10 +1,10 @@
 <script lang="ts">
   let { title, url = null, size = 'md' }: { title: string; url?: string | null; size?: 'sm' | 'md' } = $props();
-  let failed = $state(false);
+  let failedUrl = $state<string | null>(null);
 </script>
 
-{#if url && !failed}
-  <img class="cover {size}" src={url} alt="" referrerpolicy="no-referrer" onerror={() => (failed = true)} />
+{#if url && failedUrl !== url}
+  <img class="cover {size}" src={url} alt="" referrerpolicy="no-referrer" onerror={() => (failedUrl = url)} />
 {:else}
   <div class="cover {size} placeholder" aria-hidden="true">{title}</div>
 {/if}

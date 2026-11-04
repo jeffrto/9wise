@@ -6,6 +6,9 @@
 
   let isbnOpen = $state(false);
   let isbnInput = $state('');
+  const ownCover = $derived(
+    app.coverLink && app.coverLink !== 'invalid' && app.brokenCover !== app.coverLink ? app.coverLink : null,
+  );
 </script>
 
 <button
@@ -53,10 +56,13 @@
             checked={app.suggestion === i}
             onchange={() => app.pickSuggestion(i)}
           />
-          <Cover title={s.title} url={s.coverUrl} />
+          <Cover title={s.title} url={app.suggestion === i && ownCover ? ownCover : s.coverUrl} />
           <div class="meta">
             <div class="book-title">{s.title}</div>
             <div class="author">{s.author}</div>
+            {#if app.suggestion === i && ownCover}
+              <div class="small">Cover from your link</div>
+            {/if}
             <div class="small">
               {[s.year, 'Open Library'].filter(Boolean).join(' · ')}
             </div>

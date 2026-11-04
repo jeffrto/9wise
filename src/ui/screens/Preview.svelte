@@ -25,7 +25,9 @@
       .filter(Boolean)
       .join(' · '),
   );
-  const cover = $derived(app.chosen?.kind === 'existing' ? app.chosen.book.cover_image_url : null);
+  const cover = $derived(
+    app.chosen?.kind === 'existing' ? app.chosen.book.cover_image_url : (app.chosen?.imageUrl ?? null),
+  );
 
   const byline = $derived(
     [app.book!.author ?? 'No author', app.existing?.length && 'synced before', wide && `from ${app.fileName}`]

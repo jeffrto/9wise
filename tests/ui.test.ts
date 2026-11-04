@@ -243,6 +243,9 @@ describe('ui', () => {
 
     click('Continue');
     await see('5 new');
+    expect([...document.querySelectorAll('img')].map((i) => i.getAttribute('src'))).toContain(
+      'https://covers.openlibrary.org/b/id/7-M.jpg',
+    );
     click('Sync to Readwise');
     await see('is up to date');
     const post = calls.find((c) => c.method === 'POST')!.body as { highlights: Record<string, unknown>[] };
@@ -343,8 +346,14 @@ describe('ui', () => {
 
     type('https://example.com/real-cover.jpg');
     expect(button('Continue').hasAttribute('disabled')).toBe(false);
+    const picked = document.querySelector('input[name=suggestion]:checked')!.closest('label')!;
+    expect(picked.querySelector('img')!.getAttribute('src')).toBe('https://example.com/real-cover.jpg');
+    expect(picked.textContent).toContain('Cover from your link');
     click('Continue');
     await see('5 new');
+    expect([...document.querySelectorAll('img')].map((i) => i.getAttribute('src'))).toContain(
+      'https://example.com/real-cover.jpg',
+    );
     click('Sync to Readwise');
     await see('is up to date');
     const post = calls.find((c) => c.method === 'POST')!.body as { highlights: Record<string, unknown>[] };
