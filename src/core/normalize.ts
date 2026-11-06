@@ -1,5 +1,5 @@
-const SINGLE_QUOTES = /[‘’‚‛′´`]/g;
-const DOUBLE_QUOTES = /[“”„‟″«»]/g;
+export const SINGLE_QUOTES = /[‘’‚‛′´`]/g;
+export const DOUBLE_QUOTES = /[“”„‟″«»]/g;
 
 /** Comparison key only; never sent to Readwise. */
 export function normalize(text: string | null | undefined): string {
