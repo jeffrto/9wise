@@ -1,6 +1,9 @@
 import { matchBooks } from '../core/books.ts';
+import { SvelteSet } from 'svelte/reactivity';
 import { clean } from '../core/clean.ts';
+import { applyCompletions, findCompletions, indexBook, type BookIndex } from '../core/complete.ts';
 import { diff } from '../core/diff.ts';
+import { EpubError, readEpub } from '../core/epub.ts';
 import { findBook, findByIsbn, normalizeIsbn, type BookSuggestion } from '../core/lookup.ts';
 import { parseExport } from '../core/parser.ts';
 import { ReadwiseClient, ReadwiseError, type BookInfo, type ReadwiseBook } from '../core/readwise.ts';
@@ -15,6 +18,7 @@ export type Screen =
   | 'bookNew'
   | 'preview'
   | 'details'
+  | 'completions'
   | 'syncing'
   | 'done'
   | 'offline'
@@ -46,6 +50,20 @@ class App {
   parsed = $state.raw<ParseResult | null>(null);
   merge = $state(true);
   cleaned = $derived(this.parsed ? clean(this.parsed, { merge: this.merge }) : null);
+
+  epub = $state.raw<{ name: string; index: BookIndex } | null>(null);
+  epubState = $state<'idle' | 'reading' | { error: string }>('idle');
+  /** Highlights whose completion the user turned off. */
+  skipped = new SvelteSet<number>();
+  completion = $derived(this.epub && this.cleaned ? findCompletions(this.cleaned.highlights, this.epub.index) : null);
+  highlights = $derived.by(() => {
+    const highlights = this.cleaned?.highlights ?? [];
+    if (!this.completion) return highlights;
+    return applyCompletions(
+      highlights,
+      this.completion.completions.filter((c) => !this.skipped.has(c.highlight)),
+    );
+  });
 
   library = $state.raw<ReadwiseBook[] | null>(null);
   candidates = $state.raw<ReadwiseBook[]>([]);
@@ -82,7 +100,7 @@ class App {
   chosen = $state.raw<Chosen | null>(null);
   existing = $state.raw<ExistingHighlight[] | null>(null);
   deleteContained = $state(false);
-  diff = $derived(this.cleaned && this.existing ? diff(this.cleaned.highlights, this.existing) : null);
+  diff = $derived(this.cleaned && this.existing ? diff(this.highlights, this.existing) : null);
   book = $derived<BookInfo | null>(
     !this.chosen
       ? null
@@ -171,6 +189,7 @@ class App {
     this.parsed = null;
     this.fileName = '';
     this.merge = true;
+    this.removeEpub();
     this.chosen = null;
     this.existing = null;
     this.deleteContained = false;
@@ -293,8 +312,37 @@ class App {
     this.screen = this.cleaned?.check.ok ? 'preview' : 'checkFailed';
   }
 
+  async loadEpub(file: File) {
+    this.epubState = 'reading';
+    const parsed = this.parsed;
+    try {
+      const data = new Uint8Array(await file.arrayBuffer());
+      // Let the "Reading" state paint before the synchronous unzip.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const index = indexBook(readEpub(data));
+      if (this.parsed !== parsed) return;
+      this.skipped.clear();
+      this.epub = { name: file.name, index };
+      this.epubState = 'idle';
+    } catch (err) {
+      this.epubState = { error: err instanceof EpubError ? err.message : "This file couldn't be read as an EPUB." };
+    }
+  }
+
+  removeEpub() {
+    this.epub = null;
+    this.epubState = 'idle';
+    this.skipped.clear();
+  }
+
+  toggleCompletion(id: number) {
+    if (this.skipped.has(id)) this.skipped.delete(id);
+    else this.skipped.add(id);
+  }
+
   setMerge(merge: boolean) {
     this.merge = merge;
+    this.skipped.clear();
     if (this.screen === 'checkFailed' || !this.cleaned?.check.ok) this.showPreview();
   }
 

@@ -4,6 +4,7 @@
   import { num, plural } from '../format.ts';
   import Icon from '../Icon.svelte';
   import Details from './Details.svelte';
+  import EpubCard from './EpubCard.svelte';
   import NothingNew from './NothingNew.svelte';
 
   let { wide = false }: { wide?: boolean } = $props();
@@ -98,6 +99,8 @@
         {/if}
       </section>
 
+      <EpubCard />
+
       <section class="card">
         <h2 class="eyebrow">What changes in Readwise</h2>
         <div class="change">
@@ -113,7 +116,7 @@
             <div class="change-icon accent"><Icon name="extend" size={18} color="var(--ink)" /></div>
             <div style="flex: 1">
               <div class="change-title">Extended</div>
-              <div class="small">You highlighted more of a passage you already had. It's updated instead of copied.</div>
+              <div class="small">A passage you already had got longer. It's updated instead of copied.</div>
             </div>
             <div class="count">{num(plan.extend.length)}</div>
           </div>

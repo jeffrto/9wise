@@ -23,6 +23,13 @@ ElevenReader's export has a few quirks. Before anything reaches Readwise, 9wise 
 - **Footnote markers** like `¹ ² ³` are removed from the text.
 - Highlights are placed **in the order you heard them**, using their position in the audio.
 
+### Complete cut-off highlights (optional)
+
+A highlight that starts or ends mid-sentence is hard to understand later. In the preview, add the book's EPUB and
+9wise finds each highlight in it and fills in the rest of the sentence. A highlight ending in a colon also gets the
+paragraph that follows. Added text is marked so you can review it, and you can turn off any completion. Nothing is
+rewritten: your highlight stays as it is, with the book's own words around it. DRM-protected EPUBs can't be read.
+
 Then it compares the clean highlights with what is already in Readwise for that book:
 
 | In the file | What 9wise does |
@@ -42,6 +49,7 @@ download the clean file to check it yourself.
 - Your Readwise token is saved only in this browser (`localStorage`) and sent only to `readwise.io`.
   **Forget token** removes it.
 - Your highlights go straight from your browser to Readwise.
+- An EPUB you add is read only in your browser. It's never uploaded or saved.
 - **Only for a book that isn't in your Readwise library yet**, 9wise sends its title (or the ISBN, if you search
   by ISBN) to [Open Library](https://openlibrary.org) to suggest the author and cover. No highlight text is
   sent, and you always confirm the author before syncing.

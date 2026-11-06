@@ -29,7 +29,7 @@ const ABBREVIATIONS = new Set(
   'sr sra srta dr dra prof profa mr mrs ms st sto sta pe fr gen cel cap ten sgt av vol pp nº no fig ex cf'.split(' '),
 );
 
-interface BookIndex {
+export interface BookIndex {
   text: string;
   key: string;
   /** Position in `text` of each character of `key`. */
@@ -162,8 +162,8 @@ function withNextParagraph(text: string, end: number): number {
 const hasWords = (s: string) => /[\p{L}\p{N}]/u.test(s);
 
 /** Finds each highlight in the book and suggests the text that completes its sentences. */
-export function findCompletions(highlights: Highlight[], book: string): CompletionResult {
-  const index = indexBook(book);
+export function findCompletions(highlights: Highlight[], book: string | BookIndex): CompletionResult {
+  const index = typeof book === 'string' ? indexBook(book) : book;
   const { text } = index;
   const ranges: { id: number; start: number; end: number }[] = [];
   const notFound: number[] = [];

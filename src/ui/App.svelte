@@ -3,6 +3,7 @@
   import Book from './screens/Book.svelte';
   import BookNew from './screens/BookNew.svelte';
   import CheckFailed from './screens/CheckFailed.svelte';
+  import Completions from './screens/Completions.svelte';
   import Connect from './screens/Connect.svelte';
   import Details from './screens/Details.svelte';
   import Done from './screens/Done.svelte';
@@ -75,6 +76,8 @@
       <Preview {wide} />
     {:else if screen === 'details' && app.cleaned}
       <Details />
+    {:else if screen === 'completions' && app.completion}
+      <Completions />
     {:else if screen === 'syncing'}
       <Syncing />
     {:else if screen === 'done' && app.outcome}

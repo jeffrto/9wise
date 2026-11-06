@@ -3,7 +3,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../src/ui/App.svelte';
 import { app } from '../src/ui/app.svelte.ts';
-import { fixture } from './helpers.ts';
+import { fixture, makeEpub } from './helpers.ts';
 
 const FILE = 'The Lighthouse Keeper - Bookmarks.md';
 const BOOK = {
@@ -44,6 +44,19 @@ function chooseFile(name: string, content: string) {
   Object.defineProperty(input, 'files', { value: [new File([content], name)], configurable: true });
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
+
+function chooseEpub(data: Uint8Array | string, name = 'The Lighthouse Keeper.epub') {
+  const input = document.querySelector<HTMLInputElement>('input[accept*=epub]')!;
+  Object.defineProperty(input, 'files', { value: [new File([data as BlobPart], name)], configurable: true });
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+const BOOK_EPUB = makeEpub([
+  '<p>The lamp was lit every evening at dusk, no matter the weather.<sup>1</sup></p>' +
+    '<p>He climbed the one hundred and twelve steps before 4h30 each morning.</p>' +
+    '<p>Ships passed in silence, trusting a light they would never thank.</p><p>The keeper did not mind.</p>',
+  '<p>When asked, the keeper said: Storms are only loud for those who have somewhere else to be.</p>',
+]);
 
 function setWidth(width: number) {
   (window as unknown as { happyDOM: { setViewport(v: object): void } }).happyDOM.setViewport({ width, height: 844 });
@@ -160,6 +173,57 @@ describe('ui', () => {
       text: 'The lamp was lit every evening at dusk, no matter the weather.',
       note: 'first\n\nsecond',
     });
+  });
+
+  it('completes highlights with the book', async () => {
+    routes['PATCH /highlights/1/'] = () => json({});
+    await connect();
+    await see('Add your highlights');
+    chooseFile(FILE, fixture(FILE));
+    await see('Which book is this?');
+    click('Continue');
+    await see('Complete with the book');
+
+    chooseEpub('not a zip', 'notes.epub');
+    await see("This file isn't an EPUB.");
+
+    chooseEpub(BOOK_EPUB);
+    await see('Found in the book4 of 5');
+    expect(text()).toContain('Completed1');
+    expect(button('Sync to Readwise').textContent).toContain('4 new · 1 extended');
+
+    click('Review completions');
+    await see('Not in the book · 1');
+    expect(document.querySelector('mark')?.textContent).toBe('When asked, the keeper said: ');
+    document.querySelector<HTMLInputElement>('[aria-label="Complete highlight 4"]')!.click();
+    flushSync();
+    expect(document.querySelector('mark')).toBeNull();
+    click('Back to preview');
+    expect(button('Sync to Readwise').textContent).not.toContain('extended');
+
+    click('Review completions');
+    document.querySelector<HTMLInputElement>('[aria-label="Complete highlight 4"]')!.click();
+    flushSync();
+    click('Back to preview');
+    click('Sync to Readwise');
+    await see('is up to date');
+    expect(calls.find((c) => c.method === 'PATCH')).toMatchObject({
+      path: '/highlights/1/',
+      body: { text: 'When asked, the keeper said: Storms are only loud for those who have somewhere else to be.' },
+    });
+  });
+
+  it('removes the book', async () => {
+    await connect();
+    await see('Add your highlights');
+    chooseFile(FILE, fixture(FILE));
+    await see('Which book is this?');
+    click('Continue');
+    await see('Complete with the book');
+    chooseEpub(BOOK_EPUB);
+    await see('Found in the book');
+    click('Remove');
+    expect(text()).toContain('Add EPUB');
   });
 
   it('goes back to a fresh preview when the sync fails halfway', async () => {
